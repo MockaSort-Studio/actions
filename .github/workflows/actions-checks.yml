@@ -1,0 +1,101 @@
+name: MockaSort Actions PR Checks
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  checks: write
+  contents: read
+  packages: write
+  pull-requests: write
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      triggered: ${{ steps.trigger.outputs.triggered }}
+      head-sha: ${{ steps.trigger.outputs.head-sha }}
+      check-run-id: ${{ steps.trigger.outputs.check-run-id }}
+      run-python: ${{ steps.changes.outputs.python }}
+      run-container: ${{ steps.changes.outputs.container }}
+    steps:
+      - uses: ./.github/actions/pr-comment-trigger-start-checks
+        id: trigger
+        with:
+          trigger-phrase: "/test"
+          check-name: pr-checks
+          ack-comment: ":gear: Detecting changes and queuing tests…"
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Detect changed files
+        id: changes
+        if: steps.trigger.outputs.triggered == 'true'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.payload.issue.number
+            });
+            const paths = files.map(f => f.filename);
+            const pythonPatterns = [
+              /^\.github\/actions\/(test-uv|smoke-test-uv|generate-coverage)\//,
+              /^\.github\/workflows\/(release-python|python-coverage|test-python-pipeline)\.yml$/,
+            ];
+            const containerPatterns = [
+              /^\.github\/actions\/push-container\//,
+              /^\.github\/workflows\/(release-container|test-release-container)\.yml$/,
+              /^Dockerfile$/,
+            ];
+            core.setOutput('python',    String(paths.some(p => pythonPatterns.some(re => re.test(p)))));
+            core.setOutput('container', String(paths.some(p => containerPatterns.some(re => re.test(p)))));
+
+  test-python:
+    needs: setup
+    if: needs.setup.outputs.triggered == 'true' && needs.setup.outputs.run-python == 'true'
+    uses: ./.github/workflows/test-python-pipeline.yml
+
+  test-container:
+    needs: setup
+    if: needs.setup.outputs.triggered == 'true' && needs.setup.outputs.run-container == 'true'
+    uses: ./.github/workflows/test-release-container.yml
+    secrets: inherit
+
+  finish:
+    needs: [setup, test-python, test-container]
+    if: always() && needs.setup.outputs.triggered == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolve overall status
+        id: status
+        shell: bash
+        run: |
+          PYTHON="${{ needs.test-python.result }}"
+          CONTAINER="${{ needs.test-container.result }}"
+          if [[ "$PYTHON" == "failure" || "$PYTHON" == "cancelled" || \
+                "$CONTAINER" == "failure" || "$CONTAINER" == "cancelled" ]]; then
+            echo "value=failure" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=success" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: ./.github/actions/pr-comment-trigger-finish-checks
+        with:
+          check-run-id: ${{ needs.setup.outputs.check-run-id }}
+          status: ${{ steps.status.outputs.value }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: peter-evans/create-or-update-comment@v5
+        if: steps.status.outputs.value == 'success'
+        with:
+          issue-number: ${{ github.event.issue.number }}
+          body: ":white_check_mark: All relevant tests passed."
+
+      - uses: peter-evans/create-or-update-comment@v5
+        if: steps.status.outputs.value == 'failure'
+        with:
+          issue-number: ${{ github.event.issue.number }}
+          body: ":x: Some tests failed. Check the [run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for details."

@@ -1,4 +1,4 @@
-name: Test — release-container
+name: Test — Release-Container
 
 # Smoke test for the release-container reusable workflow.
 # Pushes a real dummy image to GHCR, then cleans up old versions.
@@ -7,7 +7,6 @@ name: Test — release-container
 # references composite actions by their full org/repo path.
 
 on:
-  workflow_dispatch:
   workflow_call:
 
 permissions:

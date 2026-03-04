@@ -23,9 +23,9 @@ jobs:
       - uses: ./.github/actions/pr-comment-trigger-start-checks
         id: trigger
         with:
-          trigger-phrase: "/test"
+          trigger-phrase: ":pig_nose:"
           check-name: pr-checks
-          ack-comment: ":gear: Detecting changes and queuing tests…"
+          ack-comment: ":boar: Sgrufoling...oink oink!"
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Detect changed files

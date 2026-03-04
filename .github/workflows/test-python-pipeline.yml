@@ -1,19 +1,13 @@
 name: Test — Python pipeline
 
 on:
-  workflow_dispatch:
+  workflow_call:
     inputs:
       python-version:
         description: Python version to test with
         type: string
+        required: false
         default: "3.12"
-  # workflow_call:
-  #   inputs:
-  #     python-version:
-  #       description: Python version to test with
-  #       type: string
-  #       required: false
-  #       default: "3.12"
 
 jobs:
   build:

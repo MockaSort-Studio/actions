@@ -23,11 +23,11 @@ on:
         type: string
         required: false
         default: .
-      push:
-        description: Push the image to GHCR (false to build-only)
+      dry-run:
+        description: Build only — skip login and do not push the image to GHCR
         type: boolean
         required: false
-        default: true
+        default: false
 
 permissions:
   contents: read
@@ -44,4 +44,4 @@ jobs:
           image-description: ${{ inputs.image-description }}
           dockerfile: ${{ inputs.dockerfile }}
           context: ${{ inputs.context }}
-          push: ${{ inputs.push }}
+          dry-run: ${{ inputs.dry-run }}

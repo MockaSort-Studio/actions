@@ -1,0 +1,27 @@
+name: Build Bazel
+description: Composite action for Bazel build and test
+
+inputs:
+  targets:
+    description: Bazel targets to build and test (e.g. //...)
+    required: false
+    default: //...
+  bazel-cache:
+    description: Remote cache URL for Bazel (optional)
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Bazelisk
+      shell: bash
+      run: echo "bazelisk already available in PATH"
+
+    - name: Build
+      shell: bash
+      run: bazelisk build ${{ inputs.targets }}
+
+    - name: Test
+      shell: bash
+      run: bazelisk test ${{ inputs.targets }}

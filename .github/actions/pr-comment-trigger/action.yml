@@ -1,0 +1,42 @@
+name: PR Comment Trigger
+description: Trigger actions from PR comments via gh CLI
+
+inputs:
+  trigger-phrase:
+    description: Comment phrase that activates the action (e.g. /deploy)
+    required: true
+  github-token:
+    description: GitHub token with repo and PR read permissions
+    required: true
+  script:
+    description: Path to the script to run when triggered
+    required: true
+
+outputs:
+  triggered:
+    description: Whether the trigger phrase was matched (true/false)
+    value: ${{ steps.check.outputs.triggered }}
+
+runs:
+  using: composite
+  steps:
+    - name: Check comment for trigger phrase
+      id: check
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+        TRIGGER: ${{ inputs.trigger-phrase }}
+        COMMENT: ${{ github.event.comment.body }}
+      run: |
+        if echo "$COMMENT" | grep -qF "$TRIGGER"; then
+          echo "triggered=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "triggered=false" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Run trigger script
+      if: steps.check.outputs.triggered == 'true'
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+      run: bash ${{ inputs.script }}

@@ -1,7 +1,7 @@
 name: Test — release-container
 
 # Dry-run integration test for the release-container reusable workflow.
-# push: false — image is built but never pushed to GHCR.
+# dry-run: true — image is built but never pushed to GHCR.
 #
 # NOTE: requires the repo to be published on GitHub, as the workflow
 # references composite actions by their full org/repo path.
@@ -20,4 +20,4 @@ jobs:
     uses: ./.github/workflows/release-container.yml
     with:
       image-name: ${{ inputs.image-name }}
-      push: false
+      dry-run: true

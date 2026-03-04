@@ -5,10 +5,12 @@
     "context": ".."
   },
   "features": {
-    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {}
+    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {},
+    "ghcr.io/stuartleeks/dev-container-features/shell-history:0": {}
   },
   "mounts": [
-    "source=${localEnv:HOME}/.claude,target=/root/.claude,type=bind,consistency=cached"
+    "source=${localEnv:HOME}/.claude,target=/root/.claude,type=bind,consistency=cached",
+    "source=/usr/local/share/ca-certificates,target=/usr/local/share/ca-certificates,type=bind"
   ],
   "containerEnv": {
     "ANTHROPIC_API_KEY": "${localEnv:ANTHROPIC_API_KEY}"
@@ -36,5 +38,5 @@
       }
     }
   },
-  "postCreateCommand": "uv python install && echo 'Hamlet 🐗 is ready. To work.'"
+  "postCreateCommand": "sudo update-ca-certificates && uv python install && echo 'Hamlet 🐗 is ready. To work.'"
 }

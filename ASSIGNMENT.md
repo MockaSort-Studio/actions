@@ -8,11 +8,11 @@
 ---
 
 ## Phase 0 — Environment Setup
-- [~] Create CLAUDE.md, MEMORY.md, ASSIGNMENT.md
-- [ ] Set up devcontainer with all required tools
-- [ ] Add yamllint, shellcheck, actionlint, markdownlint configs
-- [ ] Add ruff config (pyproject.toml or ruff.toml)
-- [ ] Add .python-version file
+- [x] Create CLAUDE.md, MEMORY.md, ASSIGNMENT.md
+- [x] Set up devcontainer with all required tools
+- [x] Add yamllint, shellcheck, actionlint, markdownlint configs
+- [x] Add ruff config (pyproject.toml or ruff.toml)
+- [x] Add .python-version file
 
 ## Phase 1 — Core Reusable Actions
 - [ ] `build-bazel` — composite action for Bazel build + test

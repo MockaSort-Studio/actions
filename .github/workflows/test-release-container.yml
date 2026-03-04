@@ -1,23 +1,39 @@
 name: Test — release-container
 
-# Dry-run integration test for the release-container reusable workflow.
-# dry-run: true — image is built but never pushed to GHCR.
+# Smoke test for the release-container reusable workflow.
+# Pushes a real dummy image to GHCR, then cleans up old versions.
 #
 # NOTE: requires the repo to be published on GitHub, as the workflow
 # references composite actions by their full org/repo path.
-# Not suitable for act local runs until mockasort-studio/actions is public.
 
 on:
   workflow_dispatch:
-    inputs:
-      image-name:
-        description: Image name to build (no push)
-        type: string
-        default: ""
+
+permissions:
+  contents: read
+  packages: write
 
 jobs:
   test:
     uses: ./.github/workflows/release-container.yml
+    secrets:
+      token: ${{ secrets.GITHUB_TOKEN }}
     with:
-      image-name: ${{ inputs.image-name }}
-      dry-run: true
+      image-name: mockasort-studio/actions
+      image-description: Smoke test image — safe to delete
+
+  cleanup:
+    needs: test
+    runs-on: ubuntu-latest
+    if: always()
+    permissions:
+      packages: write
+    steps:
+      - name: Delete old test image versions
+        uses: actions/delete-package-versions@v5
+        with:
+          owner: mockasort-studio
+          package-name: actions
+          package-type: container
+          min-versions-to-keep: 2
+          token: ${{ secrets.GITHUB_TOKEN }}

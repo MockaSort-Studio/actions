@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(actionlint .github/workflows/test-smoke-test-uv.yml .github/workflows/test-release-python.yml .github/workflows/test-release-container.yml)"
+    ]
+  }
+}

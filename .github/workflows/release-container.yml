@@ -8,6 +8,18 @@ on:
         type: string
         required: false
         default: ""
+      tags:
+        description: |
+          Explicit image tags (one per line, full registry path).
+          If omitted, tags are auto-generated from git context.
+        type: string
+        required: false
+        default: ""
+      labels:
+        description: Additional OCI labels (one per line, KEY=VALUE)
+        type: string
+        required: false
+        default: ""
       image-description:
         description: OCI org.opencontainers.image.description label value
         type: string
@@ -23,11 +35,10 @@ on:
         type: string
         required: false
         default: .
-      dry-run:
-        description: Build only — skip login and do not push the image to GHCR
-        type: boolean
+    secrets:
+      token:
+        description: GitHub token for GHCR authentication
         required: false
-        default: false
 
 permissions:
   contents: read
@@ -41,7 +52,9 @@ jobs:
       - uses: mockasort-studio/actions/.github/actions/push-container@main
         with:
           image-name: ${{ inputs.image-name }}
+          tags: ${{ inputs.tags }}
+          labels: ${{ inputs.labels }}
           image-description: ${{ inputs.image-description }}
           dockerfile: ${{ inputs.dockerfile }}
           context: ${{ inputs.context }}
-          dry-run: ${{ inputs.dry-run }}
+          token: ${{ secrets.token || secrets.GITHUB_TOKEN }}

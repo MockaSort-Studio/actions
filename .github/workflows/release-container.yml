@@ -49,7 +49,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: mockasort-studio/actions/.github/actions/push-container@main
+      - uses: ./.github/actions/push-container
         with:
           image-name: ${{ inputs.image-name }}
           tags: ${{ inputs.tags }}

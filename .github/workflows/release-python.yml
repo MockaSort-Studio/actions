@@ -47,7 +47,7 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - uses: mockasort-studio/actions/.github/actions/smoke-test-uv@main
+      - uses: ./.github/actions/smoke-test-uv
         with:
           python-version: ${{ inputs.python-version }}
           artifact-name: python-dist

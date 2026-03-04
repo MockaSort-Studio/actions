@@ -9,8 +9,12 @@ inputs:
   package-name:
     description: Python package/module name passed to --cov
     required: true
+  working-directory:
+    description: Directory containing the package to run coverage in (defaults to repo root)
+    required: false
+    default: .
   output-dir:
-    description: Directory to write coverage.svg into
+    description: Directory to write coverage.svg into (relative to working-directory)
     required: false
     default: public
   enable-cache:
@@ -33,12 +37,14 @@ runs:
 
     - name: Run tests with coverage
       shell: bash
+      working-directory: ${{ inputs.working-directory }}
       run: |
         uv run --with pytest --with pytest-cov --with pytest-asyncio \
           pytest --cov=${{ inputs.package-name }} --cov-report=xml
 
     - name: Generate badge
       shell: bash
+      working-directory: ${{ inputs.working-directory }}
       run: |
         uv run --with "genbadge[coverage]" \
           genbadge coverage -i coverage.xml -o coverage.svg

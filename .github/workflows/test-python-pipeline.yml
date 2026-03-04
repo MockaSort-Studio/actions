@@ -45,21 +45,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - uses: astral-sh/setup-uv@v5
+      - uses: ./.github/actions/generate-coverage
         with:
           python-version: ${{ inputs.python-version }}
-          enable-cache: true
-
-      - name: Run coverage
-        working-directory: tests/fixtures/sample-package
-        run: |
-          uv run --with pytest --with pytest-cov --with pytest-asyncio \
-            pytest --cov=sample --cov-report=xml
-          uv run --with "genbadge[coverage]" \
-            genbadge coverage -i coverage.xml -o coverage.svg
-
+          package-name: sample
+          working-directory: tests/fixtures/sample-package
       - uses: actions/upload-artifact@v4
         with:
           name: coverage-badge
-          path: tests/fixtures/sample-package/coverage.svg
+          path: tests/fixtures/sample-package/public/coverage.svg

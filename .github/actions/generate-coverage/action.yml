@@ -1,0 +1,46 @@
+name: Generate Coverage Badge
+description: Run pytest with coverage and produce a badge SVG — no deploy
+
+inputs:
+  python-version:
+    description: Python version to use (reads .python-version if omitted)
+    required: false
+    default: ""
+  package-name:
+    description: Python package/module name passed to --cov
+    required: true
+  output-dir:
+    description: Directory to write coverage.svg into
+    required: false
+    default: public
+  enable-cache:
+    description: Enable uv dependency caching
+    required: false
+    default: "false"
+  cache-suffix:
+    description: Suffix appended to the uv cache key (use to isolate caches per project)
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - uses: astral-sh/setup-uv@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+        enable-cache: ${{ inputs.enable-cache }}
+        cache-suffix: ${{ inputs.cache-suffix }}
+
+    - name: Run tests with coverage
+      shell: bash
+      run: |
+        uv run --with pytest --with pytest-cov --with pytest-asyncio \
+          pytest --cov=${{ inputs.package-name }} --cov-report=xml
+
+    - name: Generate badge
+      shell: bash
+      run: |
+        uv run --with "genbadge[coverage]" \
+          genbadge coverage -i coverage.xml -o coverage.svg
+        mkdir -p ${{ inputs.output-dir }}
+        mv coverage.svg ${{ inputs.output-dir }}/

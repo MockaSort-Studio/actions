@@ -18,7 +18,6 @@
       "extensions": [
         "anthropic.claude-code",
         "SanjulaGanepola.github-local-actions",
-        "GitHub.vscode-github-actions",
         "timonwong.shellcheck",
         "foxundermoon.shell-format",
         "redhat.vscode-yaml",

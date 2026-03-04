@@ -1,0 +1,23 @@
+name: Test — release-container
+
+# Dry-run integration test for the release-container reusable workflow.
+# push: false — image is built but never pushed to GHCR.
+#
+# NOTE: requires the repo to be published on GitHub, as the workflow
+# references composite actions by their full org/repo path.
+# Not suitable for act local runs until mockasort-studio/actions is public.
+
+on:
+  workflow_dispatch:
+    inputs:
+      image-name:
+        description: Image name to build (no push)
+        type: string
+        default: ""
+
+jobs:
+  test:
+    uses: ./.github/workflows/release-container.yml
+    with:
+      image-name: ${{ inputs.image-name }}
+      push: false

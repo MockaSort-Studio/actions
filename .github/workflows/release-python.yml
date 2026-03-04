@@ -1,0 +1,85 @@
+name: Release Python
+
+on:
+  workflow_call:
+    inputs:
+      python-version:
+        description: Python version to build with
+        type: string
+        required: false
+        default: "3.12"
+      publish-pypi:
+        description: Publish to PyPI
+        type: boolean
+        required: false
+        default: true
+      publish-github-release:
+        description: Create a GitHub Release and attach dist artifacts
+        type: boolean
+        required: false
+        default: true
+
+permissions:
+  contents: write
+  packages: write
+  id-token: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: ${{ inputs.python-version }}
+          enable-cache: true
+      - name: Build
+        run: uv build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: python-dist
+          path: dist/
+          if-no-files-found: error
+
+  smoke-test:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: mockasort-studio/actions/.github/actions/smoke-test-uv@main
+        with:
+          python-version: ${{ inputs.python-version }}
+          artifact-name: python-dist
+
+  publish-pypi:
+    needs: smoke-test
+    if: inputs.publish-pypi
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: python-dist
+          path: dist/
+      - uses: astral-sh/setup-uv@v5
+      - run: uv publish
+
+  github-release:
+    needs: smoke-test
+    if: inputs.publish-github-release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: python-dist
+          path: dist/
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true
+          draft: false
+          prerelease: false

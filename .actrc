@@ -6,3 +6,11 @@
 
 # Bind mount Docker socket so nested act calls can spawn containers
 --container-daemon-socket /var/run/docker.sock
+
+# Use host network so act containers can reach the Docker daemon and
+# external registries when running inside a devcontainer
+--network=host
+
+# Local artifact server for upload-artifact / download-artifact
+--artifact-server-path /tmp/act-artifacts
+--artifact-server-addr 0.0.0.0

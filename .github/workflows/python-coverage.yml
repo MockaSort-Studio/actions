@@ -1,0 +1,39 @@
+name: Python Coverage
+
+on:
+  workflow_call:
+    inputs:
+      python-version:
+        description: Python version to use (reads .python-version if omitted)
+        type: string
+        required: false
+        default: "3.12"
+      package-name:
+        description: Python package/module name passed to --cov
+        type: string
+        required: true
+      badges-branch:
+        description: Branch to publish the coverage badge SVG to
+        type: string
+        required: false
+        default: badges
+
+permissions:
+  contents: write
+
+jobs:
+  coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: mockasort-studio/actions/.github/actions/generate-coverage@main
+        with:
+          python-version: ${{ inputs.python-version }}
+          package-name: ${{ inputs.package-name }}
+      - name: Deploy badge
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./public
+          publish_branch: ${{ inputs.badges-branch }}
+          force_orphan: true

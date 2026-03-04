@@ -60,7 +60,7 @@ RUN ARCH=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/') \
     && ln -sf /usr/local/bin/bazelisk /usr/local/bin/bazel
 
 # mkdocs + material theme
-RUN uv tool install mkdocs --with mkdocs-material
+RUN UV_TOOL_BIN_DIR=/usr/local/bin uv tool install mkdocs --with mkdocs-material
 
 # Sanity check — fail the build if anything is missing
 RUN shellcheck --version \

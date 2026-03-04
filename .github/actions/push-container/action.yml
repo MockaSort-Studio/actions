@@ -1,0 +1,72 @@
+name: Push Container
+description: Build and push a container image to GHCR
+
+inputs:
+  image-name:
+    description: Image name without registry (defaults to github.repository)
+    required: false
+    default: ""
+  image-description:
+    description: OCI org.opencontainers.image.description label value
+    required: false
+    default: ""
+  dockerfile:
+    description: Path to the Dockerfile
+    required: false
+    default: Dockerfile
+  context:
+    description: Docker build context path
+    required: false
+    default: .
+  push:
+    description: Push the image to GHCR (false to build-only)
+    required: false
+    default: "true"
+
+runs:
+  using: composite
+  steps:
+    - name: Resolve image name
+      id: image
+      shell: bash
+      run: |
+        NAME="${{ inputs.image-name }}"
+        if [ -z "$NAME" ]; then
+          NAME="${{ github.repository }}"
+        fi
+        echo "full=ghcr.io/$NAME" >> "$GITHUB_OUTPUT"
+
+    - name: Login to GHCR
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ github.token }}
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ steps.image.outputs.full }}
+        labels: |
+          org.opencontainers.image.source=https://github.com/${{ github.repository }}
+          org.opencontainers.image.description=${{ inputs.image-description }}
+        tags: |
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+          type=ref,event=branch
+          type=sha
+
+    - name: Build and push
+      uses: docker/build-push-action@v6
+      with:
+        context: ${{ inputs.context }}
+        file: ${{ inputs.dockerfile }}
+        push: ${{ inputs.push }}
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max

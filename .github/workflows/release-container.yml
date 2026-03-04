@@ -1,0 +1,47 @@
+name: Release Container
+
+on:
+  workflow_call:
+    inputs:
+      image-name:
+        description: Image name without registry (defaults to github.repository)
+        type: string
+        required: false
+        default: ""
+      image-description:
+        description: OCI org.opencontainers.image.description label value
+        type: string
+        required: false
+        default: ""
+      dockerfile:
+        description: Path to the Dockerfile
+        type: string
+        required: false
+        default: Dockerfile
+      context:
+        description: Docker build context path
+        type: string
+        required: false
+        default: .
+      push:
+        description: Push the image to GHCR (false to build-only)
+        type: boolean
+        required: false
+        default: true
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-push:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: mockasort-studio/actions/.github/actions/push-container@main
+        with:
+          image-name: ${{ inputs.image-name }}
+          image-description: ${{ inputs.image-description }}
+          dockerfile: ${{ inputs.dockerfile }}
+          context: ${{ inputs.context }}
+          push: ${{ inputs.push }}

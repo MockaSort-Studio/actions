@@ -1,0 +1,65 @@
+name: Test — Python pipeline
+
+on:
+  workflow_dispatch:
+    inputs:
+      python-version:
+        description: Python version to test with
+        type: string
+        default: "3.12"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: ${{ inputs.python-version }}
+          enable-cache: true
+
+      - name: Build fixture package
+        run: |
+          cd tests/fixtures/sample-package
+          uv build
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: test-dist
+          path: tests/fixtures/sample-package/dist/
+          if-no-files-found: error
+
+  smoke-test:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/smoke-test-uv
+        with:
+          python-version: ${{ inputs.python-version }}
+          artifact-name: test-dist
+
+  coverage:
+    needs: smoke-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: ${{ inputs.python-version }}
+          enable-cache: true
+
+      - name: Run coverage
+        working-directory: tests/fixtures/sample-package
+        run: |
+          uv run --with pytest --with pytest-cov --with pytest-asyncio \
+            pytest --cov=sample --cov-report=xml
+          uv run --with "genbadge[coverage]" \
+            genbadge coverage -i coverage.xml -o coverage.svg
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coverage-badge
+          path: tests/fixtures/sample-package/coverage.svg

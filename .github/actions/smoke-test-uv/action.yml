@@ -1,0 +1,62 @@
+name: Smoke Test uv
+description: >
+  Smoke-test a Python package by installing from wheel and sdist.
+  If artifact-name is provided the dist artifact is downloaded;
+  otherwise the package is built from source first.
+
+inputs:
+  python-version:
+    description: Python version to use (reads .python-version if omitted)
+    required: false
+    default: ""
+  artifact-name:
+    description: Name of an existing dist artifact to test (omit to build from source)
+    required: false
+    default: ""
+  enable-cache:
+    description: Enable uv dependency caching
+    required: false
+    default: "false"
+  cache-suffix:
+    description: Suffix appended to the uv cache key (use to isolate caches per project)
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/checkout@v4
+      if: inputs.artifact-name == ''
+      with:
+        fetch-depth: 0
+
+    - uses: astral-sh/setup-uv@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+        enable-cache: ${{ inputs.enable-cache }}
+        cache-suffix: ${{ inputs.cache-suffix }}
+
+    - name: Build
+      if: inputs.artifact-name == ''
+      shell: bash
+      run: uv build
+
+    - uses: actions/download-artifact@v4
+      if: inputs.artifact-name != ''
+      with:
+        name: ${{ inputs.artifact-name }}
+        path: dist/
+
+    - name: Smoke test (wheel)
+      shell: bash
+      run: |
+        uv run --isolated --no-project \
+          --with dist/*.whl --with pytest --with pytest-asyncio \
+          pytest
+
+    - name: Smoke test (sdist)
+      shell: bash
+      run: |
+        uv run --isolated --no-project \
+          --with dist/*.tar.gz --with pytest --with pytest-asyncio \
+          pytest

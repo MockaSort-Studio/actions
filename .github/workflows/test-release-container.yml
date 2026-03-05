@@ -31,9 +31,10 @@ jobs:
     steps:
       - name: Delete old test image versions
         uses: actions/delete-package-versions@v5
+        continue-on-error: true
         with:
           owner: mockasort-studio
           package-name: actions
           package-type: container
-          min-versions-to-keep: 2
+          min-versions-to-keep: 1
           token: ${{ secrets.GITHUB_TOKEN }}

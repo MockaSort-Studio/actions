@@ -1,8 +1,7 @@
-name: Test changes-filter
+name: Test — Changes-Filter
 
 on:
-  push:
-  workflow_dispatch:
+  workflow_call:
 
 jobs:
   test-paths-match:

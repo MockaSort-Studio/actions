@@ -112,3 +112,29 @@ jobs:
             echo "expected matched=false, got: ${{ steps.filter.outputs.matched }}"
             exit 1
           }
+
+  test-matched-files-output:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/changes-filter
+        id: filter
+        with:
+          changed-files: '["src/lib/utils.py", "src/models/user.py", "docs/index.md"]'
+          paths: |
+            src/**/*.py
+      - name: Assert matched=true and matched-files contains only py files
+        shell: bash
+        run: |
+          [ "${{ steps.filter.outputs.matched }}" = "true" ] || {
+            echo "expected matched=true, got: ${{ steps.filter.outputs.matched }}"
+            exit 1
+          }
+          echo '${{ steps.filter.outputs.matched-files }}' | python3 -c "
+          import sys, json
+          files = json.load(sys.stdin)
+          assert 'src/lib/utils.py' in files, f'missing utils.py: {files}'
+          assert 'src/models/user.py' in files, f'missing user.py: {files}'
+          assert 'docs/index.md' not in files, f'docs/index.md should not match: {files}'
+          print('matched-files OK:', files)
+          "

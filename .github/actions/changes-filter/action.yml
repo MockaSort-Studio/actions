@@ -50,7 +50,12 @@ inputs:
 outputs:
   matched:
     description: "'true' if any file matched, 'false' otherwise"
-    value: ${{ steps.result.outputs.matched }}
+    value: ${{ steps.extract.outputs.matched }}
+  matched-files:
+    description: |
+      JSON array of changed file paths that matched the filter (paths mode only).
+      Empty array in custom script mode or when nothing matched.
+    value: ${{ steps.extract.outputs.matched-files }}
 
 runs:
   using: composite
@@ -64,8 +69,9 @@ runs:
         CHANGED_FILES: ${{ inputs.changed-files }}
         PATTERNS: ${{ inputs.paths }}
       run: |
-        result=$(python3 "$GITHUB_ACTION_PATH/match-paths.py")
-        echo "matched=$result" >> "$GITHUB_OUTPUT"
+        output_file=$(mktemp "$RUNNER_TEMP/filter-result-XXXXXX.json")
+        OUTPUT_FILE="$output_file" python3 "$GITHUB_ACTION_PATH/match-paths.py"
+        echo "output-file=$output_file" >> "$GITHUB_OUTPUT"
 
     # ── Custom mode: caller-supplied bash script ─────────────────────────────
     - name: Run custom filter script
@@ -76,23 +82,21 @@ runs:
         CHANGED_FILES: ${{ inputs.changed-files }}
         FILTER_SCRIPT: ${{ inputs.filter-script }}
       run: |
+        output_file=$(mktemp "$RUNNER_TEMP/filter-result-XXXXXX.json")
         echo "$FILTER_SCRIPT" > /tmp/_filter_script.sh
         if bash /tmp/_filter_script.sh; then
-          echo "matched=true" >> "$GITHUB_OUTPUT"
+          echo '{"matched":true,"files":[]}' > "$output_file"
         else
-          echo "matched=false" >> "$GITHUB_OUTPUT"
+          echo '{"matched":false,"files":[]}' > "$output_file"
         fi
+        echo "output-file=$output_file" >> "$GITHUB_OUTPUT"
 
-    # ── Unified output ───────────────────────────────────────────────────────
-    - name: Set result
-      id: result
+    # ── Extract outputs from result file ─────────────────────────────────────
+    - name: Extract outputs
+      id: extract
       shell: bash
       env:
-        PATHS_RESULT: ${{ steps.match-paths.outputs.matched }}
-        SCRIPT_RESULT: ${{ steps.match-script.outputs.matched }}
+        OUTPUT_FILE: ${{ steps.match-paths.outputs.output-file || steps.match-script.outputs.output-file }}
       run: |
-        if [ -n "$SCRIPT_RESULT" ]; then
-          echo "matched=$SCRIPT_RESULT" >> "$GITHUB_OUTPUT"
-        else
-          echo "matched=${PATHS_RESULT:-false}" >> "$GITHUB_OUTPUT"
-        fi
+        echo "matched=$(jq -r '.matched' "$OUTPUT_FILE")" >> "$GITHUB_OUTPUT"
+        echo "matched-files=$(jq -c '.files' "$OUTPUT_FILE")" >> "$GITHUB_OUTPUT"

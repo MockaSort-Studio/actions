@@ -4,6 +4,7 @@ Match a list of changed file paths against glob patterns.
 Reads from environment:
   CHANGED_FILES — JSON array of file paths
   PATTERNS      — newline-separated glob patterns
+  OUTPUT_FILE   — path to write the result JSON
 
 Glob semantics:
   **   matches any characters across path segments
@@ -11,7 +12,8 @@ Glob semantics:
   ?    matches one character within a single segment
   /    trailing slash matches the folder prefix and anything inside it
 
-Exits 0 and prints "true" if any file matches any pattern, else prints "false".
+Writes a JSON object to OUTPUT_FILE:
+  {"matched": true|false, "files": [...matched file paths...]}
 """
 
 import os
@@ -40,6 +42,11 @@ def main() -> None:
         print(f"error: CHANGED_FILES is not valid JSON: {exc}", file=sys.stderr)
         sys.exit(2)
 
+    output_file = os.environ.get("OUTPUT_FILE")
+    if not output_file:
+        print("error: OUTPUT_FILE is not set", file=sys.stderr)
+        sys.exit(2)
+
     patterns = [
         p.strip()
         for p in os.environ.get("PATTERNS", "").strip().splitlines()
@@ -47,12 +54,14 @@ def main() -> None:
     ]
 
     if not patterns:
-        print("false")
-        return
+        result = {"matched": False, "files": []}
+    else:
+        regexes = [to_regex(p) for p in patterns]
+        matched_files = [f for f in files if any(rx.search(f) for rx in regexes)]
+        result = {"matched": bool(matched_files), "files": matched_files}
 
-    regexes = [to_regex(p) for p in patterns]
-    matched = any(rx.search(f) for f in files for rx in regexes)
-    print("true" if matched else "false")
+    with open(output_file, "w") as fh:
+        json.dump(result, fh)
 
 
 if __name__ == "__main__":

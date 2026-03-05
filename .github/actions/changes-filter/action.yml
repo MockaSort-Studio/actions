@@ -1,0 +1,98 @@
+name: Changes Filter
+description: |
+  Pure filter over a set of changed files. Takes a JSON array of file paths
+  and determines whether any match the provided criteria.
+
+  Default mode: matches paths against glob patterns.
+  Supports * (within a segment) and ** (any depth).
+
+  Custom mode: runs a caller-supplied bash script. The script receives
+  CHANGED_FILES as a JSON array via environment variable and signals a match
+  via exit code — exit 0 means matched, non-zero means not matched.
+
+  The caller is responsible for providing the file list. This keeps the action
+  decoupled from any event type or API.
+
+inputs:
+  changed-files:
+    description: |
+      JSON array of changed file paths to filter against.
+      Example: '["src/foo.py", ".github/workflows/ci.yml"]'
+    required: true
+  paths:
+    description: |
+      Newline-separated list of glob patterns (default mode).
+      Supports:
+        *   matches any characters within a single path segment
+        **  matches any characters across path segments
+        /   trailing slash matches a folder prefix
+      Examples:
+        .github/actions/test-uv/
+        .github/workflows/release-python.yml
+        src/**/*.py
+        Dockerfile
+    required: false
+    default: ""
+  filter-script:
+    description: |
+      Bash script (custom mode). When provided, `paths` is ignored.
+      Receives CHANGED_FILES as a JSON array via environment variable.
+      Exit 0 = matched, non-zero = not matched.
+      Example:
+        echo "$CHANGED_FILES" | python3 -c "
+          import sys, json
+          files = json.load(sys.stdin)
+          exit(0 if any(f.startswith('src/') for f in files) else 1)
+        "
+    required: false
+    default: ""
+
+outputs:
+  matched:
+    description: "'true' if any file matched, 'false' otherwise"
+    value: ${{ steps.result.outputs.matched }}
+
+runs:
+  using: composite
+  steps:
+    # ── Default mode: glob path matching ────────────────────────────────────
+    - name: Match paths
+      id: match-paths
+      if: ${{ inputs.filter-script == '' }}
+      shell: bash
+      env:
+        CHANGED_FILES: ${{ inputs.changed-files }}
+        PATTERNS: ${{ inputs.paths }}
+      run: |
+        result=$(python3 "$GITHUB_ACTION_PATH/match-paths.py")
+        echo "matched=$result" >> "$GITHUB_OUTPUT"
+
+    # ── Custom mode: caller-supplied bash script ─────────────────────────────
+    - name: Run custom filter script
+      id: match-script
+      if: ${{ inputs.filter-script != '' }}
+      shell: bash
+      env:
+        CHANGED_FILES: ${{ inputs.changed-files }}
+        FILTER_SCRIPT: ${{ inputs.filter-script }}
+      run: |
+        echo "$FILTER_SCRIPT" > /tmp/_filter_script.sh
+        if bash /tmp/_filter_script.sh; then
+          echo "matched=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "matched=false" >> "$GITHUB_OUTPUT"
+        fi
+
+    # ── Unified output ───────────────────────────────────────────────────────
+    - name: Set result
+      id: result
+      shell: bash
+      env:
+        PATHS_RESULT: ${{ steps.match-paths.outputs.matched }}
+        SCRIPT_RESULT: ${{ steps.match-script.outputs.matched }}
+      run: |
+        if [ -n "$SCRIPT_RESULT" ]; then
+          echo "matched=$SCRIPT_RESULT" >> "$GITHUB_OUTPUT"
+        else
+          echo "matched=${PATHS_RESULT:-false}" >> "$GITHUB_OUTPUT"
+        fi

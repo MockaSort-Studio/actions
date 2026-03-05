@@ -17,8 +17,8 @@ jobs:
       triggered: ${{ steps.trigger.outputs.triggered }}
       head-sha: ${{ steps.trigger.outputs.head-sha }}
       check-run-id: ${{ steps.trigger.outputs.check-run-id }}
-      run-python: ${{ steps.changes.outputs.python }}
-      run-container: ${{ steps.changes.outputs.container }}
+      run-python: ${{ steps.python-filter.outputs.matched }}
+      run-container: ${{ steps.container-filter.outputs.matched }}
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/pr-comment-trigger-start-checks
@@ -29,31 +29,44 @@ jobs:
           ack-comment: ":boar: Sgrufoling...oink oink!"
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Detect changed files
+      - name: Fetch changed files
         id: changes
         if: steps.trigger.outputs.triggered == 'true'
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          #todo make an action or at least a script out of it
+          result-encoding: string
           script: |
             const files = await github.paginate(github.rest.pulls.listFiles, {
               owner: context.repo.owner,
               repo: context.repo.repo,
               pull_number: context.payload.issue.number
             });
-            const paths = files.map(f => f.filename);
-            const pythonPatterns = [
-              /^\.github\/actions\/(test-uv|smoke-test-uv|generate-coverage)\//,
-              /^\.github\/workflows\/(release-python|python-coverage|test-python-pipeline)\.yml$/,
-            ];
-            const containerPatterns = [
-              /^\.github\/actions\/push-container\//,
-              /^\.github\/workflows\/(release-container|test-release-container)\.yml$/,
-              /^Dockerfile$/,
-            ];
-            core.setOutput('python',    String(paths.some(p => pythonPatterns.some(re => re.test(p)))));
-            core.setOutput('container', String(paths.some(p => containerPatterns.some(re => re.test(p)))));
+            return JSON.stringify(files.map(f => f.filename));
+
+      - uses: ./.github/actions/changes-filter
+        id: python-filter
+        if: steps.trigger.outputs.triggered == 'true'
+        with:
+          changed-files: ${{ steps.changes.outputs.result }}
+          paths: |
+            .github/actions/test-uv/
+            .github/actions/smoke-test-uv/
+            .github/actions/generate-coverage/
+            .github/workflows/release-python.yml
+            .github/workflows/python-coverage.yml
+            .github/workflows/test-python-pipeline.yml
+
+      - uses: ./.github/actions/changes-filter
+        id: container-filter
+        if: steps.trigger.outputs.triggered == 'true'
+        with:
+          changed-files: ${{ steps.changes.outputs.result }}
+          paths: |
+            .github/actions/push-container/
+            .github/workflows/release-container.yml
+            .github/workflows/test-release-container.yml
+            Dockerfile
 
   test-python:
     needs: setup

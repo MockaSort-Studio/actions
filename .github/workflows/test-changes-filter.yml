@@ -1,0 +1,115 @@
+name: Test changes-filter
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  test-paths-match:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/changes-filter
+        id: filter
+        with:
+          changed-files: '[".github/workflows/release-python.yml", "src/foo.py"]'
+          paths: |
+            .github/workflows/release-python.yml
+      - name: Assert matched=true
+        shell: bash
+        run: |
+          [ "${{ steps.filter.outputs.matched }}" = "true" ] || {
+            echo "expected matched=true, got: ${{ steps.filter.outputs.matched }}"
+            exit 1
+          }
+
+  test-paths-no-match:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/changes-filter
+        id: filter
+        with:
+          changed-files: '[".github/workflows/release-python.yml", "src/foo.py"]'
+          paths: |
+            Dockerfile
+            .github/actions/push-container/
+      - name: Assert matched=false
+        shell: bash
+        run: |
+          [ "${{ steps.filter.outputs.matched }}" = "false" ] || {
+            echo "expected matched=false, got: ${{ steps.filter.outputs.matched }}"
+            exit 1
+          }
+
+  test-paths-glob-wildcard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/changes-filter
+        id: filter
+        with:
+          changed-files: '["src/lib/utils.py", "src/models/user.py"]'
+          paths: |
+            src/**/*.py
+      - name: Assert matched=true
+        shell: bash
+        run: |
+          [ "${{ steps.filter.outputs.matched }}" = "true" ] || {
+            echo "expected matched=true, got: ${{ steps.filter.outputs.matched }}"
+            exit 1
+          }
+
+  test-paths-folder-prefix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/changes-filter
+        id: filter
+        with:
+          changed-files: '[".github/actions/test-uv/action.yml"]'
+          paths: |
+            .github/actions/test-uv/
+      - name: Assert matched=true
+        shell: bash
+        run: |
+          [ "${{ steps.filter.outputs.matched }}" = "true" ] || {
+            echo "expected matched=true, got: ${{ steps.filter.outputs.matched }}"
+            exit 1
+          }
+
+  test-script-match:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/changes-filter
+        id: filter
+        with:
+          changed-files: '["src/foo.py"]'
+          filter-script: |
+            echo "$CHANGED_FILES" | grep -q "src/"
+      - name: Assert matched=true
+        shell: bash
+        run: |
+          [ "${{ steps.filter.outputs.matched }}" = "true" ] || {
+            echo "expected matched=true, got: ${{ steps.filter.outputs.matched }}"
+            exit 1
+          }
+
+  test-script-no-match:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/changes-filter
+        id: filter
+        with:
+          changed-files: '["src/foo.py"]'
+          filter-script: |
+            echo "$CHANGED_FILES" | grep -q "Dockerfile"
+      - name: Assert matched=false
+        shell: bash
+        run: |
+          [ "${{ steps.filter.outputs.matched }}" = "false" ] || {
+            echo "expected matched=false, got: ${{ steps.filter.outputs.matched }}"
+            exit 1
+          }

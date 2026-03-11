@@ -1,16 +1,13 @@
-name: Deploy Docs
+name: Deploy Zensical Docs
 
 on:
   workflow_call:
     inputs:
-      doc-tool:
-        description: >
-          Documentation tool package to install.
-          Supported: mkdocs-material, zensical.
-          Both expose the mkdocs CLI — only the installed package differs.
+      config-file:
+        description: Path to the Zensical config file (e.g. zensical.toml)
         type: string
         required: false
-        default: mkdocs-material
+        default: zensical.toml
       python-version:
         description: Python version to use (reads .python-version if omitted)
         type: string
@@ -38,7 +35,7 @@ jobs:
           enable-cache: true
 
       - name: Build docs
-        run: uvx --from ${{ inputs.doc-tool }} mkdocs build --config-file mkdocs.yml
+        run: uvx zensical build -f ${{ inputs.config-file }}
 
       - uses: actions/upload-pages-artifact@v4
         with:

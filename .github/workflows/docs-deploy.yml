@@ -37,11 +37,8 @@ jobs:
           python-version: ${{ inputs.python-version }}
           enable-cache: true
 
-      - name: Install doc tool
-        run: uv tool install ${{ inputs.doc-tool }}
-
       - name: Build docs
-        run: mkdocs build
+        run: uvx --from ${{ inputs.doc-tool }} mkdocs build --config-file mkdocs.yml
 
       - uses: actions/upload-pages-artifact@v4
         with:

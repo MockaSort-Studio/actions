@@ -1,0 +1,35 @@
+name: Lint — Python (ruff)
+
+on:
+  workflow_call:
+    inputs:
+      python-version:
+        description: Python version to use (reads .python-version if omitted)
+        type: string
+        required: false
+        default: ""
+      working-directory:
+        description: Directory ruff runs in
+        type: string
+        required: false
+        default: .
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: ${{ inputs.python-version }}
+          enable-cache: true
+
+      - name: ruff check
+        run: uv run ruff check ${{ inputs.working-directory }}
+
+      - name: ruff format --check
+        run: uv run ruff format --check ${{ inputs.working-directory }}

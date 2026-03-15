@@ -6,6 +6,10 @@ inputs:
     description: Bazel targets to build and test (e.g. //...)
     required: false
     default: //...
+  config:
+    description: Bazel config to pass as --config=<value>. If empty, --config is omitted.
+    required: false
+    default: ""
 
 runs:
   using: composite
@@ -15,8 +19,18 @@ runs:
 
     - name: Build
       shell: bash
-      run: bazel build --config=ci ${{ inputs.targets }}
+      env:
+        BAZEL_CONFIG: ${{ inputs.config }}
+      run: |
+        CONFIG_ARG=""
+        if [ -n "$BAZEL_CONFIG" ]; then CONFIG_ARG="--config=$BAZEL_CONFIG"; fi
+        bazel build $CONFIG_ARG ${{ inputs.targets }}
 
     - name: Test
       shell: bash
-      run: bazel test --config=ci ${{ inputs.targets }}
+      env:
+        BAZEL_CONFIG: ${{ inputs.config }}
+      run: |
+        CONFIG_ARG=""
+        if [ -n "$BAZEL_CONFIG" ]; then CONFIG_ARG="--config=$BAZEL_CONFIG"; fi
+        bazel test $CONFIG_ARG ${{ inputs.targets }}

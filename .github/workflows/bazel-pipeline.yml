@@ -1,0 +1,29 @@
+name: Bazel Pipeline
+
+on:
+  workflow_call:
+    inputs:
+      targets:
+        description: Bazel targets to build and test
+        type: string
+        required: false
+        default: "//..."
+      bazel-cache:
+        description: Remote cache URL for Bazel (optional)
+        type: string
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/build-bazel
+        with:
+          targets: ${{ inputs.targets }}
+          bazel-cache: ${{ inputs.bazel-cache }}

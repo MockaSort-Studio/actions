@@ -15,13 +15,22 @@ runs:
   using: composite
   steps:
     - name: Set up Bazelisk
-      shell: bash
-      run: echo "bazelisk already available in PATH"
+      uses: bazelbuild/setup-bazelisk@v3
 
     - name: Build
       shell: bash
-      run: bazelisk build ${{ inputs.targets }}
+      run: |
+        CACHE_FLAG=""
+        if [[ -n "${{ inputs.bazel-cache }}" ]]; then
+          CACHE_FLAG="--remote_cache=${{ inputs.bazel-cache }}"
+        fi
+        bazel build $CACHE_FLAG ${{ inputs.targets }}
 
     - name: Test
       shell: bash
-      run: bazelisk test ${{ inputs.targets }}
+      run: |
+        CACHE_FLAG=""
+        if [[ -n "${{ inputs.bazel-cache }}" ]]; then
+          CACHE_FLAG="--remote_cache=${{ inputs.bazel-cache }}"
+        fi
+        bazel test $CACHE_FLAG ${{ inputs.targets }}

@@ -20,6 +20,7 @@ jobs:
       run-python: ${{ steps.python-filter.outputs.matched }}
       run-container: ${{ steps.container-filter.outputs.matched }}
       run-changes-filter: ${{ steps.changes-filter-filter.outputs.matched }}
+      run-lint-python: ${{ steps.lint-python-filter.outputs.matched }}
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/pr-comment-trigger-start-checks
@@ -78,6 +79,14 @@ jobs:
             .github/actions/changes-filter/
             .github/workflows/test-changes-filter.yml
 
+      - uses: ./.github/actions/changes-filter
+        id: lint-python-filter
+        if: steps.trigger.outputs.triggered == 'true'
+        with:
+          changed-files: ${{ steps.changes.outputs.result }}
+          paths: |
+            .github/workflows/lint-python.yml
+
   test-python:
     needs: setup
     if: needs.setup.outputs.triggered == 'true' && needs.setup.outputs.run-python == 'true'
@@ -94,8 +103,15 @@ jobs:
     if: needs.setup.outputs.triggered == 'true' && needs.setup.outputs.run-changes-filter == 'true'
     uses: ./.github/workflows/test-changes-filter.yml
 
+  test-lint-python:
+    needs: setup
+    if: needs.setup.outputs.triggered == 'true' && needs.setup.outputs.run-lint-python == 'true'
+    uses: ./.github/workflows/lint-python.yml
+    with:
+      working-directory: tests/fixtures/sample-package
+
   finish:
-    needs: [setup, test-python, test-container, test-changes-filter]
+    needs: [setup, test-python, test-container, test-changes-filter, test-lint-python]
     if: always() && needs.setup.outputs.triggered == 'true'
     runs-on: ubuntu-latest
     steps:
@@ -106,9 +122,11 @@ jobs:
           PYTHON="${{ needs.test-python.result }}"
           CONTAINER="${{ needs.test-container.result }}"
           CHANGES_FILTER="${{ needs.test-changes-filter.result }}"
+          LINT_PYTHON="${{ needs.test-lint-python.result }}"
           if [[ "$PYTHON" == "failure" || "$PYTHON" == "cancelled" || \
                 "$CONTAINER" == "failure" || "$CONTAINER" == "cancelled" || \
-                "$CHANGES_FILTER" == "failure" || "$CHANGES_FILTER" == "cancelled" ]]; then
+                "$CHANGES_FILTER" == "failure" || "$CHANGES_FILTER" == "cancelled" || \
+                "$LINT_PYTHON" == "failure" || "$LINT_PYTHON" == "cancelled" ]]; then
             echo "value=failure" >> "$GITHUB_OUTPUT"
           else
             echo "value=success" >> "$GITHUB_OUTPUT"

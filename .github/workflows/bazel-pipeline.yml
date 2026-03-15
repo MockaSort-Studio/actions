@@ -1,3 +1,12 @@
+# Reusable Bazel build-and-test pipeline.
+#
+# Assumes the calling repository has a `.bazelrc` with a `build:ci` config
+# that sets up remote execution and caching (e.g. BuildBuddy RBE). Cache
+# authentication is handled via the BUILD_BUDDY_KEY environment variable,
+# which this workflow sources from the calling repo's BUILD_BUDDY_KEY secret.
+# Example .bazelrc entry:
+#   build:ci --remote_cache=grpcs://remote.buildbuddy.io
+#   build:ci --remote_header=x-buildbuddy-api-key=$BUILD_BUDDY_KEY
 name: Bazel Pipeline
 
 on:
@@ -8,11 +17,6 @@ on:
         type: string
         required: false
         default: "//..."
-      bazel-cache:
-        description: Remote cache URL for Bazel (optional)
-        type: string
-        required: false
-        default: ""
 
 permissions:
   contents: read
@@ -20,10 +24,11 @@ permissions:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+    env:
+      BUILD_BUDDY_KEY: ${{ secrets.BUILD_BUDDY_KEY }}
     steps:
       - uses: actions/checkout@v4
 
       - uses: ./.github/actions/build-bazel
         with:
           targets: ${{ inputs.targets }}
-          bazel-cache: ${{ inputs.bazel-cache }}

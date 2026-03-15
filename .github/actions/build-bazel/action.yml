@@ -6,10 +6,6 @@ inputs:
     description: Bazel targets to build and test (e.g. //...)
     required: false
     default: //...
-  bazel-cache:
-    description: Remote cache URL for Bazel (optional)
-    required: false
-    default: ""
 
 runs:
   using: composite
@@ -19,18 +15,8 @@ runs:
 
     - name: Build
       shell: bash
-      run: |
-        CACHE_FLAG=""
-        if [[ -n "${{ inputs.bazel-cache }}" ]]; then
-          CACHE_FLAG="--remote_cache=${{ inputs.bazel-cache }}"
-        fi
-        bazel build $CACHE_FLAG ${{ inputs.targets }}
+      run: bazel build --config=ci ${{ inputs.targets }}
 
     - name: Test
       shell: bash
-      run: |
-        CACHE_FLAG=""
-        if [[ -n "${{ inputs.bazel-cache }}" ]]; then
-          CACHE_FLAG="--remote_cache=${{ inputs.bazel-cache }}"
-        fi
-        bazel test $CACHE_FLAG ${{ inputs.targets }}
+      run: bazel test --config=ci ${{ inputs.targets }}

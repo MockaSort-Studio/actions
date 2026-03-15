@@ -1,0 +1,8 @@
+# CI configuration — callers override with their own .bazelrc to wire
+# remote caching (e.g. BuildBuddy). BUILD_BUDDY_KEY must be set in the
+# job environment; see .github/workflows/bazel-pipeline.yml.
+#
+# Example for a calling repo:
+#   build:ci --remote_cache=grpcs://remote.buildbuddy.io
+#   build:ci --remote_header=x-buildbuddy-api-key=$BUILD_BUDDY_KEY
+build:ci --keep_going

@@ -43,7 +43,10 @@ runs:
       shell: bash
       env:
         BAZEL_CONFIG: ${{ inputs.config }}
+        BUILD_BUDDY_KEY: ${{ inputs.build_buddy_key }}
       run: |
         CONFIG_ARG=""
         if [ -n "$BAZEL_CONFIG" ]; then CONFIG_ARG="--config=$BAZEL_CONFIG"; fi
-        bazel test $CONFIG_ARG ${{ inputs.targets }}
+        bazel test $CONFIG_ARG \
+        --remote_header="x-buildbuddy-api-key=$BUILD_BUDDY_KEY" \
+        ${{ inputs.targets }}

@@ -10,21 +10,34 @@ inputs:
     description: Bazel config to pass as --config=<value>. If empty, --config is omitted.
     required: false
     default: ""
+  build_buddy_key:
+    description: BuildBuddy API key.
+    required: false
+    default: ""
+  github-token:
+    description: GitHub token passed to setup-bazelisk for API auth.
+    required: false
+    default: ${{ github.token }}
 
 runs:
   using: composite
   steps:
     - name: Set up Bazelisk
       uses: bazelbuild/setup-bazelisk@v3
+      with:
+        token: ${{ inputs.github-token }}
 
     - name: Build
       shell: bash
       env:
         BAZEL_CONFIG: ${{ inputs.config }}
+        BUILD_BUDDY_KEY: ${{ inputs.build_buddy_key }}
       run: |
         CONFIG_ARG=""
         if [ -n "$BAZEL_CONFIG" ]; then CONFIG_ARG="--config=$BAZEL_CONFIG"; fi
-        bazel build $CONFIG_ARG ${{ inputs.targets }}
+        bazel build $CONFIG_ARG \
+        --remote_header="x-buildbuddy-api-key=$BUILD_BUDDY_KEY" \
+        ${{ inputs.targets }}
 
     - name: Test
       shell: bash

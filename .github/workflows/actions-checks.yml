@@ -82,6 +82,7 @@ jobs:
 
       - uses: ./.github/actions/changes-filter
         id: bazel-filter
+        if: steps.trigger.outputs.triggered == 'true'
         with:
           changed-files: ${{ steps.changes.outputs.result }}
           paths: |
@@ -142,7 +143,7 @@ jobs:
           if [[ "$PYTHON" == "failure" || "$PYTHON" == "cancelled" || \
                 "$CONTAINER" == "failure" || "$CONTAINER" == "cancelled" || \
                 "$CHANGES_FILTER" == "failure" || "$CHANGES_FILTER" == "cancelled" || \
-                "$LINT_PYTHON" == "failure" || "$LINT_PYTHON" == "cancelled" ]] \
+                "$LINT_PYTHON" == "failure" || "$LINT_PYTHON" == "cancelled" || \
                 "$BAZEL" == "failure" || "$BAZEL" == "cancelled" ]]; then
             echo "value=failure" >> "$GITHUB_OUTPUT"
           else

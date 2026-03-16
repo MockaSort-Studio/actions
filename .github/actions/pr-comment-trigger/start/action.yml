@@ -1,0 +1,111 @@
+name: PR Comment — Trigger Start Checks
+description: |
+  Validate a PR comment trigger, resolve the PR head SHA,
+  create an in-progress check run, and optionally post an acknowledgment comment.
+  Use pr-comment-trigger/finish to close the check run when work is done.
+
+inputs:
+  check-name:
+    description: Name of the check run to create
+    required: true
+  trigger-phrase:
+    description: |
+      Phrase that must appear in the comment body to proceed.
+      If omitted, the caller is responsible for gating via the job `if` condition.
+    required: false
+    default: ""
+  in-progress-title:
+    description: Check run output title while in progress
+    required: false
+    default: "In progress"
+  in-progress-summary:
+    description: Check run output summary while in progress
+    required: false
+    default: "Running…"
+  ack-comment:
+    description: Comment body to post on the PR acknowledging the trigger (optional)
+    required: false
+    default: ""
+  token:
+    description: GitHub token with checks:write and pull-requests:read
+    required: false
+    default: ""
+
+outputs:
+  triggered:
+    description: Whether the trigger phrase was matched (true/false)
+    value: ${{ steps.guard.outputs.triggered }}
+  head-sha:
+    description: HEAD SHA of the PR
+    value: ${{ steps.fetch-pr.outputs.head_sha }}
+  check-run-id:
+    description: ID of the created check run
+    value: ${{ steps.create-check.outputs.check_run_id }}
+
+runs:
+  using: composite
+  steps:
+    - name: Check trigger phrase
+      id: guard
+      shell: bash
+      env:
+        TRIGGER: ${{ inputs.trigger-phrase }}
+        COMMENT: ${{ github.event.comment.body }}
+        IS_PR_COMMENT: ${{ github.event.issue.pull_request != null }}
+      run: |
+        if [ "$IS_PR_COMMENT" != "true" ]; then
+          echo "triggered=false" >> "$GITHUB_OUTPUT"
+        elif [ -z "$TRIGGER" ] || echo "$COMMENT" | grep -qF "$TRIGGER"; then
+          echo "triggered=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "triggered=false" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Fetch PR head SHA
+      id: fetch-pr
+      if: steps.guard.outputs.triggered == 'true'
+      uses: actions/github-script@v7
+      with:
+        github-token: ${{ inputs.token || github.token }}
+        script: |
+          const pr = await github.rest.pulls.get({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            pull_number: context.payload.issue.number
+          });
+          core.setOutput('head_sha', pr.data.head.sha);
+
+    - name: Post acknowledgment comment
+      if: steps.guard.outputs.triggered == 'true' && inputs.ack-comment != ''
+      uses: actions/github-script@v7
+      with:
+        github-token: ${{ inputs.token || github.token }}
+        script: |
+          await github.rest.issues.createComment({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: context.payload.issue.number,
+            body: `${{ inputs.ack-comment }}`
+          });
+
+    - name: Create in-progress check run
+      id: create-check
+      if: steps.guard.outputs.triggered == 'true'
+      uses: actions/github-script@v7
+      with:
+        github-token: ${{ inputs.token || github.token }}
+        script: |
+          const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+          const response = await github.rest.checks.create({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            name: '${{ inputs.check-name }}',
+            head_sha: '${{ steps.fetch-pr.outputs.head_sha }}',
+            status: 'in_progress',
+            started_at: new Date().toISOString(),
+            output: {
+              title: '${{ inputs.in-progress-title }}',
+              summary: `${{ inputs.in-progress-summary }}\n\n[View progress](${runUrl})`
+            }
+          });
+          core.setOutput('check_run_id', String(response.data.id));

@@ -10,7 +10,14 @@ inputs:
     required: true
   trigger-phrase:
     description: |
-      Phrase that must appear in the comment body to proceed.
+      Phrase that must appear in the comment body to proceed. Accepts multiple
+      pipe-separated alternatives ("a|b|c") — matches if any one appears.
+      Useful for emoji shortcodes: GitHub's web comment box silently converts
+      a typed ":shortcode:" into the rendered glyph before the comment is
+      ever submitted, so a comment posted via the UI never contains the
+      literal shortcode text, only the emoji character. A comment posted via
+      API/gh CLI preserves whichever literal text was sent. Passing both
+      forms ("`:shortcode:`|`<glyph>`") matches either path.
       If omitted, the caller is responsible for gating via the job `if` condition.
     required: false
     default: ""
@@ -55,11 +62,21 @@ runs:
       run: |
         if [ "$IS_PR_COMMENT" != "true" ]; then
           echo "triggered=false" >> "$GITHUB_OUTPUT"
-        elif [ -z "$TRIGGER" ] || echo "$COMMENT" | grep -qF "$TRIGGER"; then
-          echo "triggered=true" >> "$GITHUB_OUTPUT"
-        else
-          echo "triggered=false" >> "$GITHUB_OUTPUT"
+          exit 0
         fi
+        if [ -z "$TRIGGER" ]; then
+          echo "triggered=true" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+        MATCHED=false
+        IFS='|' read -ra CANDIDATES <<< "$TRIGGER"
+        for phrase in "${CANDIDATES[@]}"; do
+          if echo "$COMMENT" | grep -qF -- "$phrase"; then
+            MATCHED=true
+            break
+          fi
+        done
+        echo "triggered=$MATCHED" >> "$GITHUB_OUTPUT"
 
     - name: Fetch PR head SHA
       id: fetch-pr

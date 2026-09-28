@@ -15,10 +15,17 @@ description: |
 
 inputs:
   changed-files:
-    description: |
-      JSON array of changed file paths to filter against.
-      Example: '["src/foo.py", ".github/workflows/ci.yml"]'
-    required: true
+    description: Optional JSON array of changed file paths.
+    required: false
+    default: ""
+  base:
+    description: Git base revision used when changed-files is omitted.
+    required: false
+    default: ""
+  head:
+    description: Git head revision used with base; defaults to HEAD.
+    required: false
+    default: "HEAD"
   paths:
     description: |
       Newline-separated list of glob patterns (default mode).
@@ -70,13 +77,28 @@ outputs:
 runs:
   using: composite
   steps:
-    # ── Default mode: glob path matching ────────────────────────────────────
+    - name: Collect changed files
+      id: changed
+      shell: bash
+      env:
+        CHANGED_FILES: ${{ inputs.changed-files }}
+        BASE: ${{ inputs.base }}
+        HEAD: ${{ inputs.head }}
+      run: |
+        if [ -n "$CHANGED_FILES" ]; then
+          files=$CHANGED_FILES
+        else
+          [ -n "$BASE" ] || { echo "changed-files or base is required" >&2; exit 2; }
+          files=$(git diff --name-only "$BASE" "$HEAD" | jq -Rsc 'split("\n") | map(select(length > 0))')
+        fi
+        jq -e . >/dev/null <<<"$files"
+        echo "files=$files" >> "$GITHUB_OUTPUT"
     - name: Match paths
       id: match-paths
       if: ${{ inputs.filter-script == '' }}
       shell: bash
       env:
-        CHANGED_FILES: ${{ inputs.changed-files }}
+        CHANGED_FILES: ${{ steps.changed.outputs.files }}
         PATTERNS: ${{ inputs.paths }}
         ITEMS: ${{ inputs.items }}
       run: |
@@ -90,7 +112,7 @@ runs:
       if: ${{ inputs.filter-script != '' }}
       shell: bash
       env:
-        CHANGED_FILES: ${{ inputs.changed-files }}
+        CHANGED_FILES: ${{ steps.changed.outputs.files }}
         FILTER_SCRIPT: ${{ inputs.filter-script }}
       run: |
         output_file=$(mktemp "$RUNNER_TEMP/filter-result-XXXXXX.json")

@@ -4,6 +4,7 @@ Match a list of changed file paths against glob patterns.
 Reads from environment:
   CHANGED_FILES — JSON array of file paths
   PATTERNS      — newline-separated glob patterns
+  ITEMS         — optional JSON [{"id": string, "path": string}] path prefixes
   OUTPUT_FILE   — path to write the result JSON
 
 Glob semantics:
@@ -47,15 +48,24 @@ def main() -> None:
         print("error: OUTPUT_FILE is not set", file=sys.stderr)
         sys.exit(2)
 
-    patterns = [
-        p.strip()
-        for p in os.environ.get("PATTERNS", "").strip().splitlines()
-        if p.strip()
-    ]
+    try:
+        items = json.loads(os.environ.get("ITEMS", "[]"))
+    except json.JSONDecodeError as exc:
+        print(f"error: ITEMS is not valid JSON: {exc}", file=sys.stderr)
+        sys.exit(2)
 
-    if not patterns:
-        result = {"matched": False, "files": []}
+    if items:
+        if not all(isinstance(item, dict) and isinstance(item.get("id"), str) and isinstance(item.get("path"), str) for item in items):
+            print("error: ITEMS must contain {id, path} objects", file=sys.stderr)
+            sys.exit(2)
+        matched_items = [item for item in items if any(to_regex(item["path"]).search(f) for f in files)]
+        result = {"matched": bool(matched_items), "files": [], "items": matched_items}
     else:
+        patterns = [
+            p.strip()
+            for p in os.environ.get("PATTERNS", "").strip().splitlines()
+            if p.strip()
+        ]
         regexes = [to_regex(p) for p in patterns]
         matched_files = [f for f in files if any(rx.search(f) for rx in regexes)]
         result = {"matched": bool(matched_files), "files": matched_files}

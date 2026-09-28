@@ -33,6 +33,13 @@ inputs:
         Dockerfile
     required: false
     default: ""
+  items:
+    description: |
+      JSON array of named path-prefix items. When supplied, the action returns
+      the items whose `path` contains at least one changed file. Example:
+      '[{"id":"github","path":"collaboration/github/"}]'.
+    required: false
+    default: "[]"
   filter-script:
     description: |
       Bash script (custom mode). When provided, `paths` is ignored.
@@ -54,8 +61,11 @@ outputs:
   matched-files:
     description: |
       JSON array of changed file paths that matched the filter (paths mode only).
-      Empty array in custom script mode or when nothing matched.
+      Empty array in custom script or item mode, or when nothing matched.
     value: ${{ steps.extract.outputs.matched-files }}
+  matched-items:
+    description: JSON array of caller-supplied items selected by changed paths.
+    value: ${{ steps.extract.outputs.matched-items }}
 
 runs:
   using: composite
@@ -68,6 +78,7 @@ runs:
       env:
         CHANGED_FILES: ${{ inputs.changed-files }}
         PATTERNS: ${{ inputs.paths }}
+        ITEMS: ${{ inputs.items }}
       run: |
         output_file=$(mktemp "$RUNNER_TEMP/filter-result-XXXXXX.json")
         OUTPUT_FILE="$output_file" python3 "$GITHUB_ACTION_PATH/match-paths.py"
@@ -99,4 +110,5 @@ runs:
         OUTPUT_FILE: ${{ steps.match-paths.outputs.output-file || steps.match-script.outputs.output-file }}
       run: |
         echo "matched=$(jq -r '.matched' "$OUTPUT_FILE")" >> "$GITHUB_OUTPUT"
-        echo "matched-files=$(jq -c '.files' "$OUTPUT_FILE")" >> "$GITHUB_OUTPUT"
+        echo "matched-files=$(jq -c '.files // []' "$OUTPUT_FILE")" >> "$GITHUB_OUTPUT"
+        echo "matched-items=$(jq -c '.items // []' "$OUTPUT_FILE")" >> "$GITHUB_OUTPUT"

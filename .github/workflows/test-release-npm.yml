@@ -8,8 +8,6 @@ name: Test — Release-Npm
 on:
   workflow_call:
   workflow_dispatch:
-  push:
-    branches: [feat/release-npm]
 
 permissions:
   contents: read

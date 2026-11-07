@@ -124,6 +124,11 @@ jobs:
   test-release-npm:
     needs: setup
     if: needs.setup.outputs.triggered == 'true' && needs.setup.outputs.run-release-npm == 'true'
+    # The reusable release workflow declares id-token: write (npm trusted publishing); a called workflow cannot
+    # exceed its caller, so this one job grants it. The smoke test runs in verify mode and publishes nothing.
+    permissions:
+      contents: read
+      id-token: write
     uses: ./.github/workflows/test-release-npm.yml
 
   test-changes-filter:

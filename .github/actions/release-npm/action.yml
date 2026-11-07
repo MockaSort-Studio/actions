@@ -1,0 +1,123 @@
+name: Release npm package
+description: |
+  Verify one npm package and, depending on `mode`, stage it for publication.
+
+  Skips quietly when the exact name@version already exists on npm, so it is safe
+  to run on every push. Staging (`npm stage publish`) hands the package to a human
+  for approval; nothing reaches the registry without it. Publication uses npm
+  trusted publishing (OIDC): the calling job needs `id-token: write`.
+
+inputs:
+  package-path:
+    description: Directory containing the package's package.json (relative to the repository root).
+    required: false
+    default: "."
+  mode:
+    description: |
+      verify   - check the version against npm and run the tests; publish nothing.
+      dry-run  - verify, then `npm stage publish --dry-run`.
+      publish  - verify, then `npm stage publish` (stages the package for approval).
+    required: false
+    default: verify
+  node-version:
+    description: Node.js version used to install, test and stage.
+    required: false
+    default: "22"
+  registry-url:
+    description: npm registry the package is published to.
+    required: false
+    default: https://registry.npmjs.org
+  npm-version:
+    description: npm CLI version used for `stage publish` (installed with npx).
+    required: false
+    default: "12.1.0"
+  access:
+    description: Package access level passed to `stage publish`.
+    required: false
+    default: public
+  setup-nix:
+    description: Install Nix before the tests, for packages whose tests build Nix closures ("true" or "false").
+    required: false
+    default: "false"
+  cache:
+    description: Package manager whose cache setup-node restores ("npm"); empty disables caching (needed when the repository has no lockfile).
+    required: false
+    default: npm
+  install-command:
+    description: Command that installs dependencies, run from the repository root.
+    required: false
+    default: npm ci
+  test-command:
+    description: |
+      Shell command that tests the package, run from the repository root with PACKAGE_PATH set to
+      `package-path`. Leave empty to skip tests.
+    required: false
+    default: ""
+
+outputs:
+  package:
+    description: Package name from its package.json.
+    value: ${{ steps.version.outputs.package }}
+  version:
+    description: Package version from its package.json.
+    value: ${{ steps.version.outputs.version }}
+  published:
+    description: '"true" when this version is new on npm (so it was, or in dry-run would be, staged); "false" when it already exists.'
+    value: ${{ steps.version.outputs.publish }}
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.node-version }}
+        registry-url: ${{ inputs.registry-url }}
+        cache: ${{ inputs.cache }}
+    - uses: DeterminateSystems/nix-installer-action@v19
+      if: inputs.setup-nix == 'true'
+    - name: Install dependencies
+      shell: bash
+      run: ${{ inputs.install-command }}
+    - id: version
+      name: Check the version against npm
+      shell: bash
+      env:
+        PACKAGE_PATH: ${{ inputs.package-path }}
+        REGISTRY: ${{ inputs.registry-url }}
+      run: |
+        set -euo pipefail
+        name=$(jq -r .name "$PACKAGE_PATH/package.json")
+        version=$(jq -r .version "$PACKAGE_PATH/package.json")
+        echo "package=$name" >> "$GITHUB_OUTPUT"
+        echo "version=$version" >> "$GITHUB_OUTPUT"
+        if npm view "$name@$version" version --registry "$REGISTRY" >/dev/null 2>npm-view.err; then
+          echo "publish=false" >> "$GITHUB_OUTPUT"
+          echo "$name@$version already exists on npm; nothing to release."
+        elif grep -q 'E404' npm-view.err; then
+          echo "publish=true" >> "$GITHUB_OUTPUT"
+        else
+          cat npm-view.err >&2
+          exit 1
+        fi
+    - name: Test
+      if: inputs.test-command != ''
+      shell: bash
+      env:
+        PACKAGE_PATH: ${{ inputs.package-path }}
+      run: ${{ inputs.test-command }}
+    - name: Verify staged publication
+      if: steps.version.outputs.publish == 'true' && inputs.mode == 'dry-run'
+      shell: bash
+      env:
+        PACKAGE_PATH: ${{ inputs.package-path }}
+        NPM_VERSION: ${{ inputs.npm-version }}
+        ACCESS: ${{ inputs.access }}
+      run: npx --yes "npm@$NPM_VERSION" stage publish "$PACKAGE_PATH" --access "$ACCESS" --dry-run
+    - name: Stage package for approval
+      if: steps.version.outputs.publish == 'true' && inputs.mode == 'publish'
+      shell: bash
+      env:
+        PACKAGE_PATH: ${{ inputs.package-path }}
+        NPM_VERSION: ${{ inputs.npm-version }}
+        ACCESS: ${{ inputs.access }}
+      run: npx --yes "npm@$NPM_VERSION" stage publish "$PACKAGE_PATH" --access "$ACCESS"

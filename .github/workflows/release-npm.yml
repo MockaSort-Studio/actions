@@ -83,7 +83,8 @@ jobs:
         with:
           fetch-depth: 0
       - id: release
-        uses: ./.github/actions/release-npm
+        # Full path, not ./: a relative path resolves in the CALLER's checkout, where this action does not exist.
+        uses: MockaSort-Studio/actions/.github/actions/release-npm@main
         with:
           package-path: ${{ inputs.package-path }}
           mode: ${{ inputs.mode }}

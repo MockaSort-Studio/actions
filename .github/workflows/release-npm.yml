@@ -1,0 +1,97 @@
+name: Release npm
+
+# Reusable workflow: verify one npm package and optionally stage it for publication.
+# See .github/actions/release-npm for the behavior of each `mode`.
+
+on:
+  workflow_call:
+    inputs:
+      package-path:
+        description: Directory containing the package's package.json (relative to the repository root).
+        type: string
+        required: false
+        default: "."
+      mode:
+        description: verify, dry-run or publish (see the release-npm action).
+        type: string
+        required: false
+        default: verify
+      node-version:
+        description: Node.js version used to install, test and stage.
+        type: string
+        required: false
+        default: "22"
+      registry-url:
+        description: npm registry the package is published to.
+        type: string
+        required: false
+        default: https://registry.npmjs.org
+      npm-version:
+        description: npm CLI version used for `stage publish`.
+        type: string
+        required: false
+        default: "12.1.0"
+      access:
+        description: Package access level passed to `stage publish`.
+        type: string
+        required: false
+        default: public
+      setup-nix:
+        description: Install Nix before the tests ("true" or "false").
+        type: string
+        required: false
+        default: "false"
+      cache:
+        description: Package manager whose cache setup-node restores ("npm"); empty disables caching.
+        type: string
+        required: false
+        default: npm
+      install-command:
+        description: Command that installs dependencies, run from the repository root.
+        type: string
+        required: false
+        default: npm ci
+      test-command:
+        description: Shell command that tests the package (PACKAGE_PATH is set); empty skips tests.
+        type: string
+        required: false
+        default: ""
+    outputs:
+      package:
+        description: Package name from its package.json.
+        value: ${{ jobs.release.outputs.package }}
+      version:
+        description: Package version from its package.json.
+        value: ${{ jobs.release.outputs.version }}
+      published:
+        description: '"true" when this version is new on npm; "false" when it already exists.'
+        value: ${{ jobs.release.outputs.published }}
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    outputs:
+      package: ${{ steps.release.outputs.package }}
+      version: ${{ steps.release.outputs.version }}
+      published: ${{ steps.release.outputs.published }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: release
+        uses: ./.github/actions/release-npm
+        with:
+          package-path: ${{ inputs.package-path }}
+          mode: ${{ inputs.mode }}
+          node-version: ${{ inputs.node-version }}
+          registry-url: ${{ inputs.registry-url }}
+          npm-version: ${{ inputs.npm-version }}
+          access: ${{ inputs.access }}
+          setup-nix: ${{ inputs.setup-nix }}
+          cache: ${{ inputs.cache }}
+          install-command: ${{ inputs.install-command }}
+          test-command: ${{ inputs.test-command }}

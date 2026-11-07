@@ -1,0 +1,8 @@
+{
+  "name": "@mockasort-studio/actions-sample-npm-package",
+  "version": "0.0.0-fixture.1",
+  "description": "Fixture for the release-npm smoke test. Never published.",
+  "private": true,
+  "type": "module",
+  "main": "index.mjs"
+}

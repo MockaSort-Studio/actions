@@ -19,6 +19,7 @@ jobs:
       check-run-id: ${{ steps.trigger.outputs.check-run-id }}
       run-python: ${{ steps.python-filter.outputs.matched }}
       run-container: ${{ steps.container-filter.outputs.matched }}
+      run-release-npm: ${{ steps.release-npm-filter.outputs.matched }}
       run-changes-filter: ${{ steps.changes-filter-filter.outputs.matched }}
       run-bazel: ${{ steps.bazel-filter.outputs.matched }}
       run-lint-python: ${{ steps.lint-python-filter.outputs.matched }}
@@ -72,6 +73,17 @@ jobs:
             Dockerfile
 
       - uses: ./.github/actions/changes-filter
+        id: release-npm-filter
+        if: steps.trigger.outputs.triggered == 'true'
+        with:
+          changed-files: ${{ steps.changes.outputs.result }}
+          paths: |
+            .github/actions/release-npm/
+            .github/workflows/release-npm.yml
+            .github/workflows/test-release-npm.yml
+            tests/fixtures/sample-npm-package/
+
+      - uses: ./.github/actions/changes-filter
         id: changes-filter-filter
         if: steps.trigger.outputs.triggered == 'true'
         with:
@@ -109,6 +121,11 @@ jobs:
     uses: ./.github/workflows/test-release-container.yml
     secrets: inherit
 
+  test-release-npm:
+    needs: setup
+    if: needs.setup.outputs.triggered == 'true' && needs.setup.outputs.run-release-npm == 'true'
+    uses: ./.github/workflows/test-release-npm.yml
+
   test-changes-filter:
     needs: setup
     if: needs.setup.outputs.triggered == 'true' && needs.setup.outputs.run-changes-filter == 'true'
@@ -127,7 +144,7 @@ jobs:
       working-directory: tests/fixtures/sample-package
 
   finish:
-    needs: [setup, test-python, test-container, test-changes-filter, test-bazel, test-lint-python]
+    needs: [setup, test-python, test-container, test-release-npm, test-changes-filter, test-bazel, test-lint-python]
     if: always() && needs.setup.outputs.triggered == 'true'
     runs-on: ubuntu-latest
     steps:
@@ -137,11 +154,13 @@ jobs:
         run: |
           PYTHON="${{ needs.test-python.result }}"
           CONTAINER="${{ needs.test-container.result }}"
+          RELEASE_NPM="${{ needs.test-release-npm.result }}"
           CHANGES_FILTER="${{ needs.test-changes-filter.result }}"
           BAZEL="${{ needs.test-bazel.result }}"
           LINT_PYTHON="${{ needs.test-lint-python.result }}"
           if [[ "$PYTHON" == "failure" || "$PYTHON" == "cancelled" || \
                 "$CONTAINER" == "failure" || "$CONTAINER" == "cancelled" || \
+                "$RELEASE_NPM" == "failure" || "$RELEASE_NPM" == "cancelled" || \
                 "$CHANGES_FILTER" == "failure" || "$CHANGES_FILTER" == "cancelled" || \
                 "$LINT_PYTHON" == "failure" || "$LINT_PYTHON" == "cancelled" || \
                 "$BAZEL" == "failure" || "$BAZEL" == "cancelled" ]]; then

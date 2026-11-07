@@ -1,0 +1,24 @@
+name: Test — Release-Npm
+
+# Smoke test for the release-npm reusable workflow, in `verify` mode: it checks the fixture's version against
+# npm and runs the fixture's tests, and publishes nothing.
+#
+# NOTE: requires the repo to be published on GitHub, as the workflow references its composite action by path.
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  test:
+    uses: ./.github/workflows/release-npm.yml
+    with:
+      package-path: tests/fixtures/sample-npm-package
+      mode: verify
+      cache: ""
+      install-command: npm --prefix tests/fixtures/sample-npm-package install --no-audit --no-fund
+      test-command: node --test "$PACKAGE_PATH"
